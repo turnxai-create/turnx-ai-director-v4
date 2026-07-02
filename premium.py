@@ -1,116 +1,107 @@
+# premium.py
+# TURNX AI Director V4 - Premium Access System
+
 from __future__ import annotations
 
-import time
-from typing import Dict, Optional
+import sqlite3
+from datetime import datetime, timedelta
 
 
-class PremiumManager:
-    """
-    Simple premium access control for TURNX AI Director V4.
+class PremiumSystem:
+    def __init__(self, db_path: str = "turnx.db"):
+        self.db_path = db_path
+        self._init_db()
 
-    Controls:
-    - feature access
-    - usage limits
-    - subscription state (basic structure only)
-    """
+    def _connect(self):
+        return sqlite3.connect(self.db_path)
 
-    def __init__(self) -> None:
-        self.users: Dict[int, dict] = {}
+    def _init_db(self):
+        conn = self._connect()
+        cursor = conn.cursor()
 
-    # ==========================================================
-    # User Registration
-    # ==========================================================
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            chat_id INTEGER PRIMARY KEY,
+            plan TEXT DEFAULT 'free',
+            usage_count INTEGER DEFAULT 0,
+            last_reset TEXT
+        )
+        """)
 
-    def register_user(self, chat_id: int) -> None:
-        if chat_id not in self.users:
-            self.users[chat_id] = {
-                "premium": False,
-                "requests": 0,
-                "reset_at": time.time() + 86400,  # daily reset
-            }
-
-    # ==========================================================
-    # Access Check
-    # ==========================================================
+        conn.commit()
+        conn.close()
 
     def is_premium(self, chat_id: int) -> bool:
-        self.register_user(chat_id)
-        return self.users[chat_id]["premium"]
+        conn = self._connect()
+        cursor = conn.cursor()
 
-    # ==========================================================
-    # Usage Tracking
-    # ==========================================================
+        cursor.execute("SELECT plan FROM users WHERE chat_id=?", (chat_id,))
+        row = cursor.fetchone()
 
-    def can_use(self, chat_id: int, limit: int = 10) -> bool:
-        self.register_user(chat_id)
+        conn.close()
 
-        user = self.users[chat_id]
+        return row is not None and row[0] == "premium"
 
-        # reset daily quota
-        if time.time() > user["reset_at"]:
-            user["requests"] = 0
-            user["reset_at"] = time.time() + 86400
+    def require_access(self, chat_id: int):
+        """
+        Returns None if allowed, otherwise returns error message.
+        """
+        if self.is_premium(chat_id):
+            return None
 
-        return user["requests"] < limit
+        conn = self._connect()
+        cursor = conn.cursor()
 
-    def increment_usage(self, chat_id: int) -> None:
-        self.register_user(chat_id)
-        self.users[chat_id]["requests"] += 1
-from __future__ import annotations
+        cursor.execute(
+            "SELECT usage_count FROM users WHERE chat_id=?",
+            (chat_id,)
+        )
 
-import time
-from typing import Dict, Optional
+        row = cursor.fetchone()
+
+        if row is None:
+            cursor.execute(
+                "INSERT INTO users (chat_id, plan, usage_count, last_reset) VALUES (?, 'free', 0, ?)",
+                (chat_id, datetime.utcnow().isoformat())
+            )
+            conn.commit()
+            conn.close()
+            return None
+
+        usage = row[0]
+
+        if usage >= 10:
+            conn.close()
+            return "⚠️ Free limit reached. Upgrade to premium."
+
+        conn.close()
+        return None
+
+    def increment_usage(self, chat_id: int):
+        conn = self._connect()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT usage_count FROM users WHERE chat_id=?",
+            (chat_id,)
+        )
+
+        row = cursor.fetchone()
+
+        if row is None:
+            cursor.execute(
+                "INSERT INTO users (chat_id, usage_count, last_reset) VALUES (?, 1, ?)",
+                (chat_id, datetime.utcnow().isoformat())
+            )
+        else:
+            cursor.execute(
+                "UPDATE users SET usage_count = usage_count + 1 WHERE chat_id=?",
+                (chat_id,)
+            )
+
+        conn.commit()
+        conn.close()
 
 
-class PremiumManager:
-    """
-    Simple premium access control for TURNX AI Director V4.
-
-    Controls:
-    - feature access
-    - usage limits
-    - subscription state (basic structure only)
-    """
-
-    def __init__(self) -> None:
-        self.users: Dict[int, dict] = {}
-
-    # ==========================================================
-    # User Registration
-    # ==========================================================
-
-    def register_user(self, chat_id: int) -> None:
-        if chat_id not in self.users:
-            self.users[chat_id] = {
-                "premium": False,
-                "requests": 0,
-                "reset_at": time.time() + 86400,  # daily reset
-            }
-
-    # ==========================================================
-    # Access Check
-    # ==========================================================
-
-    def is_premium(self, chat_id: int) -> bool:
-        self.register_user(chat_id)
-        return self.users[chat_id]["premium"]
-
-    # ==========================================================
-    # Usage Tracking
-    # ==========================================================
-
-    def can_use(self, chat_id: int, limit: int = 10) -> bool:
-        self.register_user(chat_id)
-
-        user = self.users[chat_id]
-
-        # reset daily quota
-        if time.time() > user["reset_at"]:
-            user["requests"] = 0
-            user["reset_at"] = time.time() + 86400
-
-        return user["requests"] < limit
-
-    def increment_usage(self, chat_id: int) -> None:
-        self.register_user(chat_id)
-        self.users[chat_id]["requests"] += 1
+# Singleton instance used across project
+premium = PremiumSystem()quests"] += 1
