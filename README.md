@@ -18,20 +18,22 @@ Powered by Groq API.
 - 🎬 Video
 - 🎞 Image → Video
 
-### Supported Models
+---
 
-**Images**
+## 🧠 Supported Models
+
+### Images
 - Nano Banana Pro 2
 - Nano Banana Pro
 - ChatGPT Image 2.0
 
-**Video**
+### Video
 - Veo 3.1
 - Omni
 - Seedance
 - Grok
 
-**Image → Video**
+### Image → Video
 - Veo 3.1
 - Omni
 - Seedance
@@ -39,11 +41,11 @@ Powered by Groq API.
 
 ---
 
-## 🧠 Architecture
+## ⚙️ Architecture
 
 - Flask Webhook Server
 - Modular Telegram Handler
-- AI Director Engine
+- AI Director Engine (Groq-powered)
 - Prompt Engine Layer
 - Session State Manager
 - Premium Access System
